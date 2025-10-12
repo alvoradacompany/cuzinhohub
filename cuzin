@@ -10,10 +10,12 @@ local podstoggle = false
 local exitstoggle = false
 local doortoggle = false
 local neverfailtoggle = false
+local noclipEnabled = false
 
+-- Remove GUIs antigas
 if LocalPlayer:FindFirstChild("PlayerGui") then
 	for _, gui in pairs(LocalPlayer.PlayerGui:GetChildren()) do
-		if gui.Name == "ScreenGui" then
+		if gui:IsA("ScreenGui") then
 			gui:Destroy()
 		end
 	end
@@ -26,7 +28,7 @@ ScreenGui.ResetOnSpawn = false
 local Frame = Instance.new("Frame")
 Frame.Parent = ScreenGui
 Frame.BackgroundColor3 = Color3.fromRGB(0,0,0)
-Frame.Size = UDim2.new(0,300,0,340)
+Frame.Size = UDim2.new(0,300,0,420)
 Frame.Position = UDim2.new(0.35,0,0.3,0)
 Frame.BorderSizePixel = 0
 Frame.Active = true
@@ -41,55 +43,36 @@ TextLabel.Text = "Cuzinho Hub"
 TextLabel.TextColor3 = Color3.fromRGB(0,13,255)
 TextLabel.TextScaled = true
 
-local function createButton(name,text,posY)
+-- Função para criar botão com toggle de cor
+local function createToggleButton(name,text,posY,callback)
 	local b = Instance.new("TextButton")
 	b.Name = name
 	b.Parent = Frame
 	b.Size = UDim2.new(1,0,0,30)
 	b.Position = UDim2.new(0,0,posY,0)
-	b.BackgroundColor3 = Color3.fromRGB(38,38,38)
+	b.BackgroundColor3 = Color3.fromRGB(38,38,38) -- cinza desligado
 	b.TextColor3 = Color3.fromRGB(255,255,255)
 	b.TextScaled = true
 	b.Text = text
+
+	-- estado interno
+	local active = false
+
+	b.MouseButton1Click:Connect(function()
+		active = not active
+		if active then
+			b.BackgroundColor3 = Color3.fromRGB(0,170,0) -- verde ativado
+		else
+			b.BackgroundColor3 = Color3.fromRGB(38,38,38) -- cinza desligado
+		end
+		if callback then
+			callback(active)
+		end
+	end)
 	return b
 end
 
-local espPlayersBtn = createButton("espPlayers","ESP Players",0.12)
-local espPCsBtn = createButton("espPCs","ESP PCs",0.25)
-local freezePodsBtn = createButton("freezePods","FreezePod ESP",0.38)
-local exitDoorsBtn = createButton("exitDoors","ExitDoor ESP",0.51)
-local doorBtn = createButton("doorESP","Door ESP",0.64)
-local tpPCBtn = createButton("tpPCBtn","TP PC Próximo",0.77)
-local speedBtn = createButton("speedBtn","Speed Toggle",0.9)
-local noclipBtn = createButton("noclipBtn","Noclip Toggle",1.03)
-local neverFailBtn = createButton("neverFail","Never Fail Hacking",1.16)
-local shadowsOnBtn = createButton("shadowsOn","Ativar Sombras",1.29)
-local shadowsOffBtn = createButton("shadowsOff","Desativar Sombras",1.42)
-
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Parent = ScreenGui
-toggleBtn.Size = UDim2.new(0,50,0,50)
-toggleBtn.Position = UDim2.new(1,-60,0,10)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)
-toggleBtn.TextColor3 = Color3.fromRGB(255,255,255)
-toggleBtn.Text = "☰"
-toggleBtn.TextScaled = true
-toggleBtn.BorderSizePixel = 0
-toggleBtn.AutoButtonColor = true
-toggleBtn.Style = Enum.ButtonStyle.RobloxRoundDefaultButton
-toggleBtn.MouseButton1Click:Connect(function()
-	Frame.Visible = not Frame.Visible
-end)
-
-local function getBeast()
-	for _, player in pairs(Players:GetPlayers()) do
-		if player.Character and player.Character:FindFirstChild("Hammer") then
-			return player
-		end
-	end
-	return nil
-end
-
+-- Highlight helper
 local function ensureHighlight(parent)
 	if parent and not parent:FindFirstChild("Highlight") then
 		local h = Instance.new("Highlight")
@@ -100,6 +83,16 @@ local function ensureHighlight(parent)
 		return h
 	end
 	return parent and parent:FindFirstChild("Highlight") or nil
+end
+
+-- Funções ESP
+local function getBeast()
+	for _, player in pairs(Players:GetPlayers()) do
+		if player.Character and player.Character:FindFirstChild("Hammer") then
+			return player
+		end
+	end
+	return nil
 end
 
 local function updatePlayerESP()
@@ -204,6 +197,7 @@ local function updateExitDoorESP()
 	end
 end
 
+-- Door ESP
 local doorLoopRunning = false
 local function startDoorESP()
 	if doorLoopRunning then return end
@@ -251,125 +245,15 @@ local function startDoorESP()
 	end)
 end
 
-espPlayersBtn.MouseButton1Click:Connect(function()
-	playertoggle = not playertoggle
+-- Criação dos botões com toggle de cor
+local espPlayersBtn = createToggleButton("espPlayers","ESP Players",0.07,function(state)
+	playertoggle = state
 	updatePlayerESP()
 end)
 
-espPCsBtn.MouseButton1Click:Connect(function()
-	pctoggle = not pctoggle
+local espPCsBtn = createToggleButton("espPCs","ESP PCs",0.17,function(state)
+	pctoggle = state
 	updatePCESP()
 end)
 
-freezePodsBtn.MouseButton1Click:Connect(function()
-	podstoggle = not podstoggle
-	updateFreezePodESP()
-end)
-
-exitDoorsBtn.MouseButton1Click:Connect(function()
-	exitstoggle = not exitstoggle
-	updateExitDoorESP()
-end)
-
-doorBtn.MouseButton1Click:Connect(function()
-	doortoggle = not doortoggle
-	if doortoggle then
-		startDoorESP()
-	else
-		-- removal handled in loop
-	end
-end)
-
-tpPCBtn.MouseButton1Click:Connect(function()
-	local closestPC
-	local shortestDist = math.huge
-	if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-		for _, obj in pairs(Workspace:GetDescendants()) do
-			if obj.Name == "ComputerTable" then
-				local primary = obj:FindFirstChild("PrimaryPart") or obj:FindFirstChildWhichIsA("BasePart")
-				if primary then
-					local dist = (LocalPlayer.Character.HumanoidRootPart.Position - primary.Position).Magnitude
-					if dist < shortestDist then
-						shortestDist = dist
-						closestPC = primary
-					end
-				end
-			end
-		end
-		if closestPC then
-			LocalPlayer.Character:SetPrimaryPartCFrame(CFrame.new(closestPC.Position + Vector3.new(0,3,0)))
-		end
-	end
-end)
-
-speedBtn.MouseButton1Click:Connect(function()
-	if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-		local humanoid = LocalPlayer.Character.Humanoid
-		if humanoid.WalkSpeed == 16 then
-			humanoid.WalkSpeed = 50
-		else
-			humanoid.WalkSpeed = 16
-		end
-	end
-end)
-
-local noclipEnabled = false
-noclipBtn.MouseButton1Click:Connect(function()
-	noclipEnabled = not noclipEnabled
-	spawn(function()
-		while noclipEnabled do
-			wait(0.1)
-			if LocalPlayer.Character then
-				for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-					if part:IsA("BasePart") then
-						part.CanCollide = false
-					end
-				end
-			end
-		end
-	end)
-end)
-
-local oldNamecall = nil
-local mt = nil
-neverFailBtn.MouseButton1Click:Connect(function()
-	neverfailtoggle = not neverfailtoggle
-	if neverfailtoggle then
-		mt = getrawmetatable(game)
-		oldNamecall = mt.__namecall
-		setreadonly(mt, false)
-		mt.__namecall = newcclosure(function(self, ...)
-			local args = {...}
-			if getnamecallmethod() == 'FireServer' and args[1] == 'SetPlayerMinigameResult' and neverfailtoggle then
-				args[2] = true
-			end
-			return oldNamecall(self, unpack(args))
-		end)
-		setreadonly(mt, true)
-	else
-		if mt and oldNamecall then
-			setreadonly(mt, false)
-			mt.__namecall = oldNamecall
-			setreadonly(mt, true)
-		end
-		neverfailtoggle = false
-	end
-end)
-
-shadowsOnBtn.MouseButton1Click:Connect(function()
-	Lighting.GlobalShadows = true
-end)
-
-shadowsOffBtn.MouseButton1Click:Connect(function()
-	Lighting.GlobalShadows = false
-end)
-
-spawn(function()
-	while true do
-		wait(1)
-		if playertoggle then updatePlayerESP() end
-		if pctoggle then updatePCESP() end
-		if podstoggle then updateFreezePodESP() end
-		if exitstoggle then updateExitDoorESP() end
-	end
-end)
+local freezePodsBtn = createToggleButton("freezePods","FreezePod ESP",0.27,function(state
